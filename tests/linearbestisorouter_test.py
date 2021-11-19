@@ -22,13 +22,14 @@ import os
 import json
 import datetime
 import hashlib
+import math
 
 from weatherrouting.routers.linearbestisorouter import LinearBestIsoRouter
+from weatherrouting.utils import reduce360
 from .mock_grib import mock_grib
 from .mock_point_validity import mock_point_validity
 
 polar_bavaria38 = weatherrouting.Polar(os.path.join(os.path.dirname(__file__),'data/bavaria38.pol'))
-
 
 class TestRouting_gait_downwind(unittest.TestCase):
     def setUp(self):
@@ -58,11 +59,16 @@ class TestRouting_gait_downwind(unittest.TestCase):
         gjs = json.dumps(weatherrouting.utils.pathAsGeojson(path_to_end))
         print(gjs)
 
+def heading(y,x):
+    a = math.degrees(math.atan2(y,x))
+    if a<0:
+        a = 360 + a
+    return (a + 360) % 360
 
-class TestRouting_gait_upwind(unittest.TestCase):
+class TestRouting_gait_upwind_allconditions(unittest.TestCase):
     def setUp(self):
-        grib = mock_grib(20,270,0)
-        self.track = [(35.80502,25.27515),(35.81287, 24.53033)]
+        grib = mock_grib(10,90,0)
+        self.track = [(36,24),(36, 25)]
         island_route = mock_point_validity(self.track)
         self.routing_obj = weatherrouting.Routing(
             LinearBestIsoRouter,
@@ -74,19 +80,33 @@ class TestRouting_gait_upwind(unittest.TestCase):
         )
         
     def test_step(self):
-        res = None 
-        i = 0
-        
-        while not self.routing_obj.end:
-            res = self.routing_obj.step()
-            i += 1
 
+        base_step = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]]
+        base_start = [34,17]
 
-        path_to_end = res.path
+        for s in base_step:
+            base_end = [base_start[0]+s[0],base_start[1]+s[1]]
+            ang = math.atan2(*s)
+            head = heading(*s)
+            print ("ang",ang,"head",head,"s",s)
+            routing_obj = weatherrouting.Routing(
+                LinearBestIsoRouter,
+                polar_bavaria38,
+                [base_start,base_end],
+                mock_grib(10,head,0),
+                datetime.datetime.fromisoformat('2021-04-02T12:00:00'),
+                pointValidity = mock_point_validity(self.track).point_validity,
+            )
+            res = None 
+            i = 0
+            
+            while not routing_obj.end:
+                res = routing_obj.step()
+                i += 1
 
-        gjs = json.dumps(weatherrouting.utils.pathAsGeojson(path_to_end))
-        print(gjs)
-
+            path_to_end = res.path
+            gjs = json.dumps(weatherrouting.utils.pathAsGeojson(path_to_end))
+            print(gjs)
 
 class TestRouting_lowWind_noIsland(unittest.TestCase):
     def setUp(self):
