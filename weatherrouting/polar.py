@@ -149,10 +149,8 @@ class Polar:
 		else:
 			if twa < twaup:
 				v = vmgup * math.cos(twa) #/
-				print (v)
 			if twa > twadown:
 				v = vmgdown * math.cos(twa) #/
-		print ("UP",UP,"DOWN",DOWN)
 		return v
 
 
