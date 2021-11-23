@@ -63,39 +63,28 @@ def heading(y,x):
     a = math.degrees(math.atan2(y,x))
     if a<0:
         a = 360 + a
-    return (a + 360) % 360
+    return (90 - a + 360) % 360
 
-class TestRouting_gait_upwind_allconditions(unittest.TestCase):
-    def setUp(self):
-        grib = mock_grib(10,90,0)
-        self.track = [(36,24),(36, 25)]
-        island_route = mock_point_validity(self.track)
-        self.routing_obj = weatherrouting.Routing(
-            LinearBestIsoRouter,
-            polar_bavaria38,
-            self.track,
-            grib,
-            datetime.datetime.fromisoformat('2021-04-02T12:00:00'),
-            pointValidity = island_route.point_validity,
-        )
-        
+
+class TestRouting_strait_upwind(unittest.TestCase):
+ 
     def test_step(self):
 
-        base_step = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]]
+        base_step = [[1,0],[-1,0]] #[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]]
         base_start = [34,17]
 
         for s in base_step:
             base_end = [base_start[0]+s[0],base_start[1]+s[1]]
-            ang = math.atan2(*s)
             head = heading(*s)
-            print ("ang",ang,"head",head,"s",s)
+            print ("TEST UPWIND TWD",head,"step",s)
+            pvmodel = mock_point_validity([base_start,base_end])
             routing_obj = weatherrouting.Routing(
                 LinearBestIsoRouter,
                 polar_bavaria38,
                 [base_start,base_end],
                 mock_grib(10,head,0),
                 datetime.datetime.fromisoformat('2021-04-02T12:00:00'),
-                pointValidity = mock_point_validity(self.track).point_validity,
+                lineValidity = pvmodel.line_validity,
             )
             res = None 
             i = 0
@@ -105,7 +94,9 @@ class TestRouting_gait_upwind_allconditions(unittest.TestCase):
                 i += 1
 
             path_to_end = res.path
-            gjs = json.dumps(weatherrouting.utils.pathAsGeojson(path_to_end))
+            base_gjs = pvmodel.geojson_default
+            base_gjs["features"] += weatherrouting.utils.pathAsGeojson(path_to_end)["features"]
+            gjs = json.dumps(base_gjs)
             print(gjs)
 
 class TestRouting_lowWind_noIsland(unittest.TestCase):
